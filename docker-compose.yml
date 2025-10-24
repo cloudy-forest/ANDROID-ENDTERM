@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: mobile-bank-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword # Mật khẩu cho user 'root'
+      MYSQL_DATABASE: banking_app      # Tên database của bạn
+      MYSQL_USER: myuser               # User bạn muốn tạo
+      MYSQL_PASSWORD: mypassword       # Mật khẩu cho user 'myuser'
+    ports:
+      - "3306:3306" # Ánh xạ cổng 3306 của máy bạn vào 3306 của container
+    volumes:
+      - mysql-data:/var/lib/mysql
+    # Thêm phần này nếu bạn gặp lỗi "Public Key Retrieval" khi kết nối
+    command: --default-authentication-plugin=mysql_native_password
+
+volumes:
+  mysql-data: # Volume này để lưu dữ liệu database, tránh bị mất khi stop
