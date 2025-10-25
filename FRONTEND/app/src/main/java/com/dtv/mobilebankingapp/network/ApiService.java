@@ -1,5 +1,7 @@
 package com.dtv.mobilebankingapp.network;
 
+import java.util.List;
+
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.POST;
@@ -15,4 +17,7 @@ public interface ApiService {
     @GET("/api/users/me")
     Call<User> getMe(@Header("Authorization") String token);
     // TODO: Thêm API đăng ký và các API khác ở đây
+
+    @GET("/api/accounts/me")
+    Call<List<Account>> getMyAccounts(@Header("Authorization") String token);
 }

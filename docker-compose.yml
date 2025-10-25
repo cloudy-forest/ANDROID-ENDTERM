@@ -11,9 +11,17 @@ services:
     ports:
       - "3306:3306" # Ánh xạ cổng 3306 của máy bạn vào 3306 của container
     volumes:
-      - mysql-data:/var/lib/mysql
+      - ./mysql-data:/var/lib/mysql
     # Thêm phần này nếu bạn gặp lỗi "Public Key Retrieval" khi kết nối
     command: --default-authentication-plugin=mysql_native_password
 
-volumes:
-  mysql-data: # Volume này để lưu dữ liệu database, tránh bị mất khi stop
+  phpmyadmin: 
+    image: phpmyadmin:latest
+    restart: always
+    ports:
+      - "8081:80"
+    environment:
+      - PMA_HOST=mysql-db # Quan trọng: Tên này phải khớp với tên service DB (mysql-db)
+      - PMA_PORT=3306
+    depends_on:
+      - mysql-db # Báo cho docker khởi động sau khi 'mysql-db' đã chạy

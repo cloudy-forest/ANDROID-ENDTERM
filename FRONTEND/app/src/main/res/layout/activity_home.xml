@@ -28,4 +28,13 @@
         android:text="Đăng xuất"
         android:layout_marginTop="32dp"/>
 
+    <TextView
+        android:id="@+id/tvBalance"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Số dư: Đang tải..."
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"/>
+
 </LinearLayout>

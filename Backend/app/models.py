@@ -27,11 +27,3 @@ class Account(Base):
     # Giúp ta gọi `user.accounts` để lấy danh sách tài khoản
     owner = relationship("User", back_populates="accounts")
 
-# Cập nhật lại class User để thêm mối quan hệ
-class User(Base):
-    __tablename__ = "users"
-    # ... (các cột cũ: id, username, ...) ...
-    
-    # Thêm dòng này vào class User
-    # Nó liên kết User với Account
-   

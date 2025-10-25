@@ -36,3 +36,5 @@ replay_pid*
 /FRONTEND/.gradle/
 /FRONTEND/.idea/
 *.iml
+
+/mysql-data/
