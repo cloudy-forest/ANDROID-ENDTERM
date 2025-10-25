@@ -87,3 +87,13 @@ def read_users_me(current_user: ModelUser = Depends(security.get_current_user)):
     # Nếu code chạy được đến đây, nghĩa là token đã hợp lệ.
     # Chỉ cần trả về user là xong.
     return current_user
+
+# --- Endpoint 4: Lấy tài khoản (Được bảo vệ) ---
+@app.get("/api/accounts/me", response_model=list[schemas.Account])
+def read_user_accounts(current_user: models.User = Depends(security.get_current_user), db: Session = Depends(get_db)):
+    """
+    API được bảo vệ, trả về TẤT CẢ tài khoản của user hiện tại
+    """
+    # Lấy tài khoản từ DB
+    accounts = crud.get_accounts_by_user(db, user_id=current_user.id)
+    return accounts

@@ -33,5 +33,13 @@ def create_user(db: Session, user: schemas.UserCreate):
     
     return db_user
 
+# --- CRUD cho Account ---
+
+def get_accounts_by_user(db: Session, user_id: int):
+    """
+    Lấy tất cả tài khoản của một user
+    """
+    return db.query(models.Account).filter(models.Account.owner_id == user_id).all()
+
 # TODO: Thêm các hàm CRUD khác ở đây
 # ví dụ: get_accounts_by_user, create_transaction, ...

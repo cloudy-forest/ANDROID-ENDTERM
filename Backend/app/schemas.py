@@ -37,3 +37,28 @@ class LoginRequest(BaseModel):
 class Token(BaseModel):
     token: str
     token_type: str = "bearer" # Giá trị mặc định
+    
+# --- Schemas cho Account ---
+
+class AccountBase(BaseModel):
+    account_number: str
+    balance: int
+
+class Account(AccountBase):
+    id: int
+    owner_id: int
+
+    class Config:
+        from_attributes = True # Đổi từ orm_mode
+
+# Cập nhật lại schema 'User' (quan trọng)
+# Để nó có thể hiển thị danh sách tài khoản khi cần
+class User(BaseModel):
+    id: int
+    username: str
+    full_name: str
+    role: str
+    accounts: list[Account] = [] # Thêm dòng này
+
+    class Config:
+        from_attributes = True
