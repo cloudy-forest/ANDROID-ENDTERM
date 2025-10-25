@@ -10,6 +10,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(100))
     role = Column(String(50), default="CUSTOMER")
+    accounts = relationship("Account", back_populates="owner")
     
 class Account(Base):
     __tablename__ = "accounts"
@@ -33,4 +34,4 @@ class User(Base):
     
     # Thêm dòng này vào class User
     # Nó liên kết User với Account
-    accounts = relationship("Account", back_populates="owner")
+   
