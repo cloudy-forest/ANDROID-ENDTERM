@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from .models import User as ModelUser # Đổi tên để tránh xung đột
 
 # Import tất cả các module bạn vừa tạo
 from . import crud, models, schemas, security
@@ -72,3 +73,17 @@ def login_for_access_token(login_request: schemas.LoginRequest, db: Session = De
     # FastAPI sẽ tự động chuyển nó thành JSON: {"token": "..."}
     # khớp với `LoginResponse.java`
     return {"token": access_token}
+
+# --- Endpoint 3: Lấy thông tin User (Được bảo vệ) ---
+@app.get("/api/users/me", response_model=schemas.User)
+def read_users_me(current_user: ModelUser = Depends(security.get_current_user)):
+    
+    # API này được bảo vệ. 
+    # Nó dùng dependency 'get_current_user' từ 'security.py'.
+    # FastAPI sẽ tự động chạy 'get_current_user' trước.
+    # - Nếu token hợp lệ, 'get_current_user' sẽ trả về user.
+    # - Nếu token sai/thiếu, nó sẽ tự động trả về lỗi 401.
+    
+    # Nếu code chạy được đến đây, nghĩa là token đã hợp lệ.
+    # Chỉ cần trả về user là xong.
+    return current_user

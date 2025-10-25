@@ -22,3 +22,17 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Môi trường ảo của Python
+/Backend/venv/
+
+# Thư mục cache của Python
+/Backend/__pycache__/
+/Backend/app/__pycache__/
+
+# Thư mục build/cache của Android
+/FRONTEND/build/
+/FRONTEND/app/build/
+/FRONTEND/.gradle/
+/FRONTEND/.idea/
+*.iml
