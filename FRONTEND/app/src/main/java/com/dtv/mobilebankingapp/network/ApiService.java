@@ -20,4 +20,10 @@ public interface ApiService {
 
     @GET("/api/accounts/me")
     Call<List<Account>> getMyAccounts(@Header("Authorization") String token);
+
+    @POST("/api/transactions/transfer")
+    Call<TransactionResponse> performTransfer(
+            @Header("Authorization") String token,
+            @Body TransferRequest transferRequest
+    );
 }

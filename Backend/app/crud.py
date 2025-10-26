@@ -41,5 +41,48 @@ def get_accounts_by_user(db: Session, user_id: int):
     """
     return db.query(models.Account).filter(models.Account.owner_id == user_id).all()
 
+# Hàm helper để lấy tài khoản bằng SỐ TÀI KHOẢN
+def get_account_by_number(db: Session, account_number: str):
+    return db.query(models.Account).filter(models.Account.account_number == account_number).first()
+
+# --- HÀM CHUYỂN TIỀN---
+def create_transaction(db: Session, sender_account: models.Account, receiver_account: models.Account, amount: int):
+
+    # 1. Kiểm tra số dư
+    if sender_account.balance < amount:
+        # Nếu không đủ tiền, trả về False(thất bại)
+        return None
+    try: 
+        # 2. Trừ tiền người gửi 
+        sender_account.balance -= amount
+        
+        # 3. Cộng tiền người nhận
+        receiver_account.balance += amount
+        
+        # 4. Tạo bản ghi (record) giao dịch
+        db_transaction = models.Transaction(
+            amount=amount,
+            sender_id=sender_account.id,
+            receiver_id=receiver_account.id
+        )
+        
+        # 5. Thêm cả 3 thay đổi (sender, receiver, transaction) vào session
+        db.add(sender_account)
+        db.add(receiver_account)
+        db.add(db_transaction)
+        
+        # 6. Commit (Lưu) tất cả thay đổi vào db
+        # Đây là một "giao dịch" (database transaction):
+        # Hoặc tất cả cùng thành công, hoặc không gì cả 
+        db.commit()
+        
+        # 7 Trả về bản ghi giao dịch
+        return  db_transaction
+    
+    except Exception as e: 
+        # Nếu có lỗi, hủy mọi thay đổi
+        db.rollback()
+        return None
+    
 # TODO: Thêm các hàm CRUD khác ở đây
-# ví dụ: get_accounts_by_user, create_transaction, ...
+
