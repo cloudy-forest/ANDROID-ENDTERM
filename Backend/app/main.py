@@ -97,3 +97,55 @@ def read_user_accounts(current_user: models.User = Depends(security.get_current_
     # Lấy tài khoản từ DB
     accounts = crud.get_accounts_by_user(db, user_id=current_user.id)
     return accounts
+
+# --- Endpoint 5: Chuyển tiền (Được bảo vệ) ---
+@app.post("/api/transactions/transfer", response_model=schemas.Transaction)
+def perform_transfer(
+    transaction_request: schemas.TransactionCreate,
+    current_user: models.User = Depends(security.get_current_user),
+    db: Session = Depends(get_db)
+):
+    # API được bảo vệ đẻ thực hiện chuyển tiền
+    
+    # 1. Lấy tài khoản của người gửi (chỉ lấy tài khoản đầu tiên)
+    # (Đây là cách làm đơn giản, sau này có thể cho user chọn)
+    sender_account = crud.get_accounts_by_user(db, user_id=current_user.id)[0]
+    if not sender_account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User (sender) has no account",
+        )
+        
+    # 2. Lấy tài khoản của người nhận
+    receiver_account = crud.get_account_by_number(db, account_number=transaction_request.receiver_account_number)
+    if not receiver_account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Receiver account not found",
+        )
+        
+    # 3. Kiểm tra user tự chuyển cho chính mình
+    if sender_account.id == receiver_account.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail= "Cannot transfer to your own account",
+        )
+        
+    # 4. Thực hiện giao dịch
+    db_transaction = crud.create_transaction(
+        db=db,
+        sender_account=sender_account,
+        receiver_account=receiver_account,
+        amount=transaction_request.amount
+    )
+    
+    # 5. Xử lí kết quả
+    if db_transaction is None:
+        # Lỗi (có thể là không đủ tiền)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Transaction failed (e.g., insufficient funds)",
+        )
+        
+    # 6. Trả về 200 OK (Giao dịch thành công)
+    return db_transaction

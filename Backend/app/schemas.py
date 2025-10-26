@@ -1,7 +1,5 @@
-from pydantic import BaseModel
-
-# BaseModel của Pydantic
-
+from pydantic import BaseModel # BaseModel của Pydantic
+from datetime import datetime
 # Schemas cho User
 # --------------------
 
@@ -50,7 +48,7 @@ class Account(AccountBase):
 
     class Config:
         from_attributes = True # Đổi từ orm_mode
-
+        
 # Cập nhật lại schema 'User' (quan trọng)
 # Để nó có thể hiển thị danh sách tài khoản khi cần
 class User(BaseModel):
@@ -60,5 +58,24 @@ class User(BaseModel):
     role: str
     accounts: list[Account] = [] # Thêm dòng này
 
+    class Config:
+        from_attributes = True
+        
+
+# ---Schemas cho Transaction----
+class TransactionBase(BaseModel):
+    amount: int
+    
+# schemas để nhận request: Cần biết số tài khoản nhận
+class TransactionCreate(TransactionBase):
+    receiver_account_number: str # User sẽ nhập số tài khoản này
+    
+# schemas để trả về (hiển thị lịch sử)
+class Transaction(TransactionBase):
+    id: int
+    timestamp: datetime
+    sender_id: int
+    receiver_id: int
+    
     class Config:
         from_attributes = True
