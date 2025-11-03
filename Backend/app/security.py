@@ -97,3 +97,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     
     # Trả về đối tượng user (của SQLAlchemy)
     return user
+
+def get_pin_hash(pin: str):
+    return pwd_context.hash(pin)
+
+def verify_pin(plain_pin: str, hashed_pin: str):
+    return pwd_context.verify(plain_pin, hashed_pin)

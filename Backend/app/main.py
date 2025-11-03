@@ -1,3 +1,12 @@
+import smtplib, ssl # Thư viện gửi mail (dùng SSL)
+import os
+import random
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
+from datetime import datetime, timedelta
+from pydantic import BaseModel
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from .models import User as ModelUser # Đổi tên để tránh xung đột
@@ -5,6 +14,7 @@ from .models import User as ModelUser # Đổi tên để tránh xung đột
 # Import tất cả các module bạn vừa tạo
 from . import crud, models, schemas, security
 from .database import SessionLocal, engine, Base
+
 
 # -------------------------------------------------------------------
 # !!! QUAN TRỌNG !!!
@@ -17,6 +27,8 @@ Base.metadata.create_all(bind=engine)
 # Khởi tạo ứng dụng FastAPI
 app = FastAPI()
 
+load_dotenv() # Tải biến từ file .env
+otp_storage = {} # Kho lưu OTP
 # --- Dependency (Phần phụ thuộc) ---
 # Đây là một "dependency" của FastAPI.
 # Nó sẽ tạo một phiên (session) database mới cho mỗi request,
@@ -107,16 +119,35 @@ def perform_transfer(
 ):
     # API được bảo vệ đẻ thực hiện chuyển tiền
     
-    # 1. Lấy tài khoản của người gửi (chỉ lấy tài khoản đầu tiên)
-    # (Đây là cách làm đơn giản, sau này có thể cho user chọn)
-    sender_account = crud.get_accounts_by_user(db, user_id=current_user.id)[0]
-    if not sender_account:
+    # --- BƯỚC 1: XÁC THỰC MÃ PIN ---
+    
+    # 1a. Kiểm tra xem user đã tạo PIN chưa
+    if not current_user.hashed_pin:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Vui lòng tạo mã PIN giao dịch trước khi chuyển tiền"
+        )
+
+    # 1b. Xác thực PIN user nhập (từ 'transaction_request.pin')
+    # với PIN đã lưu ('current_user.hashed_pin')
+    # (dùng hàm 'verify_pin' bạn đã thêm trong 'security.py')
+    if not security.verify_pin(transaction_request.pin, current_user.hashed_pin):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Mã PIN không chính xác"
+        )
+    
+    # 2. Lấy tài khoản của người gửi
+    # ( an toàn hơn, tránh lỗi [0])
+    sender_accounts = crud.get_accounts_by_user(db, user_id=current_user.id)
+    if not sender_accounts:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User (sender) has no account",
         )
-        
-    # 2. Lấy tài khoản của người nhận
+    sender_account = sender_accounts[0] # Lấy tài khoản đầu tiên
+
+    # 3. Lấy tài khoản của người nhận
     receiver_account = crud.get_account_by_number(db, account_number=transaction_request.receiver_account_number)
     if not receiver_account:
         raise HTTPException(
@@ -124,14 +155,14 @@ def perform_transfer(
             detail="Receiver account not found",
         )
         
-    # 3. Kiểm tra user tự chuyển cho chính mình
+    # 4. Kiểm tra user tự chuyển cho chính mình
     if sender_account.id == receiver_account.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail= "Cannot transfer to your own account",
         )
         
-    # 4. Thực hiện giao dịch
+    # 5. Thực hiện giao dịch
     db_transaction = crud.create_transaction(
         db=db,
         sender_account=sender_account,
@@ -139,13 +170,73 @@ def perform_transfer(
         amount=transaction_request.amount
     )
     
-    # 5. Xử lí kết quả
+    # 6. Xử lí kết quả
     if db_transaction is None:
-        # Lỗi (có thể là không đủ tiền)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Transaction failed (e.g., insufficient funds)",
         )
         
-    # 6. Trả về 200 OK (Giao dịch thành công)
+    # 7. Trả về 200 OK (Giao dịch thành công)
     return db_transaction
+
+@app.post("/api/pin/request-otp")
+def request_pin_otp(current_user: models.User = Depends(security.get_current_user)):
+    otp_code = str(random.randint(100000, 999999))
+    expiry_time = datetime.now() + timedelta(minutes=5)
+    otp_storage[current_user.username] = {"otp": otp_code, "expiry": expiry_time}
+
+    # --- PHẦN GỬI EMAIL (Gmail) ---
+    try:
+        # Đọc thông tin từ file .env
+        sender_email = os.getenv("EMAIL_SENDER")
+        receiver_email = "some_receiver@example.com" # (Email thật của user)
+        password = os.getenv("EMAIL_PASSWORD") # Mật khẩu 16 ký tự
+
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = receiver_email
+        msg['Subject'] = "Xac thuc Ma PIN - MyBank"
+        body = f"Ma OTP cua ban la: {otp_code}. Ma se het han trong 5 phut."
+        msg.attach(MIMEText(body, 'plain'))
+
+        # Tạo kết nối SSL (an toàn)
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL(os.getenv("SMTP_SERVER"), int(os.getenv("SMTP_PORT")), context=context) as server:
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, msg.as_string())
+
+    except Exception as e:
+        print(f"Lỗi gửi email: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi hệ thống gửi email")
+    # --- KẾT THÚC GỬI EMAIL ---
+
+    return {"message": "OTP đã được gửi. Vui lòng kiểm tra email."}
+
+class PinSetRequest(BaseModel):
+    password: str # Mật khẩu đăng nhập
+    otp: str
+    new_pin: str # PIN mới (6 số)
+
+@app.post("/api/pin/set")
+def set_transaction_pin(
+    request: PinSetRequest,
+    current_user: models.User = Depends(security.get_current_user), 
+    db: Session = Depends(get_db)
+):
+    # 1. Xác thực mật khẩu đăng nhập
+    if not security.verify_password(request.password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sai mật khẩu")
+
+    # 2. Xác thực OTP
+    stored_otp = otp_storage.get(current_user.username)
+    if not stored_otp or datetime.now() > stored_otp["expiry"] or stored_otp["otp"] != request.otp:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP sai hoặc hết hạn")
+
+    # 3. Hash và lưu PIN mới
+    current_user.hashed_pin = security.get_pin_hash(request.new_pin)
+    db.add(current_user)
+    db.commit()
+
+    del otp_storage[current_user.username]
+    return {"message": "Tạo mã PIN thành công!"}

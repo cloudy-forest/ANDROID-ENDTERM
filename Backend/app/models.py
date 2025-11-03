@@ -12,6 +12,7 @@ class User(Base):
     full_name = Column(String(100))
     role = Column(String(50), default="CUSTOMER")
     accounts = relationship("Account", back_populates="owner")
+    hashed_pin = Column(String(255), nullable=True) # PIN 6 số (đã hash)
     
 class Account(Base):
     __tablename__ = "accounts"

@@ -69,6 +69,7 @@ class TransactionBase(BaseModel):
 # schemas để nhận request: Cần biết số tài khoản nhận
 class TransactionCreate(TransactionBase):
     receiver_account_number: str # User sẽ nhập số tài khoản này
+    pin: str # Yêu cầu mã pin
     
 # schemas để trả về (hiển thị lịch sử)
 class Transaction(TransactionBase):
