@@ -1,3 +1,4 @@
+import random
 from sqlalchemy.orm import Session
 from . import models, schemas, security
 
@@ -28,6 +29,16 @@ def create_user(db: Session, user: schemas.UserCreate):
     
     # 3. Thêm đối tượng mới vào session và lưu vào DB
     db.add(db_user)
+    db.commit()
+
+    new_account_number = f"TDTU{random.randint(100000, 999999)}"
+    db_account = models.Account(
+        account_number=new_account_number,
+        balance=1000000, # Tặng 1 triệu làm vốn
+        owner_id=db_user.id,
+        bank_name="TDTU_BANK" # Mặc định
+    )
+    db.add(db_account)
     db.commit()
     
     # 4. Refresh để lấy ID mới vừa được tạo

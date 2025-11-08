@@ -17,7 +17,7 @@ from .database import SessionLocal, engine, Base
 
 
 
-INTER_BANK_FEE = 5000  # Phí 5,000 VND
+INTER_BANK_FEE = 0  # Phí 5,000 VND
 MY_BANK_NAME = "TDTU_BANK"
 
 
@@ -132,7 +132,14 @@ def transfer_funds(
     # 2. Lấy tài khoản người gửi (Giả định 1 user 1 tài khoản)
     if not current_user.accounts:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Người dùng không có tài khoản ngân hàng")
-    sender_account = current_user.accounts[0]
+    # Lấy ID của tài khoản gửi
+    sender_account_id = current_user.accounts[0].id
+    
+    # Lấy lại đối tượng sender_account bằng session 'db' (Phiên 2)
+    sender_account = db.query(models.Account).filter(models.Account.id == sender_account_id).first()
+    if not sender_account:
+        # Điều này không bao giờ nên xảy ra, nhưng để an toàn
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản người gửi")
 
     # 3. Lấy tài khoản người nhận
     # DÙNG HÀM MỚI: tìm theo SỐ TK và TÊN NGÂN HÀNG
@@ -172,7 +179,7 @@ def transfer_funds(
         sender_account=sender_account, 
         receiver_account=receiver_account, 
         amount_to_receive=amount_to_receive,
-        total_debit=total_amount_to_debit
+        total_to_debit=total_amount_to_debit
     )
     
     if not db_transaction:
