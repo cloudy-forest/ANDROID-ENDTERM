@@ -26,4 +26,15 @@ public interface ApiService {
             @Header("Authorization") String token,
             @Body TransferRequest transferRequest
     );
+
+    // API yêu cầu OTP để tạo PIN
+    @POST("/api/pin/request-otp")
+    Call<MessageResponse> requestPinOtp(@Header("Authorization") String token);
+
+    // API gửi Mật khẩu, OTP, và PIN mới
+    @POST("/api/pin/set")
+    Call<MessageResponse> setPin(
+            @Header("Authorization") String token,
+            @Body PinSetRequest pinSetRequest
+    );
 }

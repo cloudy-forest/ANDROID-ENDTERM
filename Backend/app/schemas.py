@@ -1,43 +1,12 @@
-from pydantic import BaseModel # BaseModel của Pydantic
+from pydantic import BaseModel
 from datetime import datetime
-# Schemas cho User
-# --------------------
 
-# Đây là dữ liệu client (Android) gửi lên khi đăng ký
-class UserCreate(BaseModel):
-    username: str
-    password: str
-    full_name: str
+# -------------------------------------------------------------------
+# !!! Sửa lỗi: Di chuyển Account lên TRƯỚC User
+# để class User có thể tham chiếu đến 'list[Account]'
+# -------------------------------------------------------------------
 
-# Đây là dữ liệu trả về cho client khi xem thông tin user
-# (Nó không chứa 'hashed_password' để đảm bảo an toàn)
-class User(BaseModel):
-    id: int
-    username: str
-    full_name: str
-    role: str
-
-    class Config:
-        from_attributes = True
-
-
-# Schemas cho Authentication
-# --------------------
-
-# Đây là dữ liệu client (Android) gửi lên khi đăng nhập
-# (Khớp với LoginRequest.java)
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-# Đây là dữ liệu server trả về khi login thành công
-# (Khớp với LoginResponse.java)
-class Token(BaseModel):
-    token: str
-    token_type: str = "bearer" # Giá trị mặc định
-    
 # --- Schemas cho Account ---
-
 class AccountBase(BaseModel):
     account_number: str
     balance: int
@@ -47,31 +16,50 @@ class Account(AccountBase):
     owner_id: int
 
     class Config:
-        from_attributes = True # Đổi từ orm_mode
-        
-# Cập nhật lại schema 'User' (quan trọng)
-# Để nó có thể hiển thị danh sách tài khoản khi cần
-class User(BaseModel):
-    id: int
+        from_attributes = True
+
+# -------------------------------------------------------------------
+# !!! Sửa lỗi: Hợp nhất 2 class User và thêm 'email'
+# -------------------------------------------------------------------
+
+# --- Schemas cho User ---
+
+# Tạo một class Base để chứa các trường chung
+class UserBase(BaseModel):
     username: str
-    full_name: str
+    full_name: str | None = None
+    email: str  
+
+# Dữ liệu client gửi lên khi ĐĂNG KÝ
+class UserCreate(UserBase): # <-- Kế thừa từ UserBase
+    password: str
+
+# Dữ liệu trả về cho client (HỢP NHẤT TỪ 2 CLASS CŨ)
+class User(UserBase): # <-- Kế thừa từ UserBase
+    id: int
     role: str
-    accounts: list[Account] = [] # Thêm dòng này
+    accounts: list[Account] = [] # Giữ lại danh sách tài khoản
 
     class Config:
         from_attributes = True
-        
 
-# ---Schemas cho Transaction----
+# --- Schemas cho Authentication ---
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class Token(BaseModel):
+    token: str
+    token_type: str = "bearer"
+
+# --- Schemas cho Transaction ---
 class TransactionBase(BaseModel):
     amount: int
     
-# schemas để nhận request: Cần biết số tài khoản nhận
 class TransactionCreate(TransactionBase):
-    receiver_account_number: str # User sẽ nhập số tài khoản này
-    pin: str # Yêu cầu mã pin
+    receiver_account_number: str
+    pin: str
     
-# schemas để trả về (hiển thị lịch sử)
 class Transaction(TransactionBase):
     id: int
     timestamp: datetime

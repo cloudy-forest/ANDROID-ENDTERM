@@ -15,6 +15,9 @@
         android:theme="@style/Theme.MobileBankingApp"
         android:usesCleartextTraffic="true">
         <activity
+            android:name=".SetPinActivity"
+            android:exported="false" />
+        <activity
             android:name=".HomeActivity"
             android:exported="false" />
         <activity

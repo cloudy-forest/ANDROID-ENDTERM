@@ -21,7 +21,9 @@ def create_user(db: Session, user: schemas.UserCreate):
     db_user = models.User(
         username=user.username,
         hashed_password=hashed_password,
-        full_name=user.full_name
+        full_name=user.full_name,
+        email=user.email,
+        role="user"
     )
     
     # 3. Thêm đối tượng mới vào session và lưu vào DB

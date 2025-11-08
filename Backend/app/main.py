@@ -190,7 +190,7 @@ def request_pin_otp(current_user: models.User = Depends(security.get_current_use
     try:
         # Đọc thông tin từ file .env
         sender_email = os.getenv("EMAIL_SENDER")
-        receiver_email = "some_receiver@example.com" # (Email thật của user)
+        receiver_email = current_user.email # (Email thật của user)
         password = os.getenv("EMAIL_PASSWORD") # Mật khẩu 16 ký tự
 
         msg = MIMEMultipart()
@@ -221,22 +221,29 @@ class PinSetRequest(BaseModel):
 @app.post("/api/pin/set")
 def set_transaction_pin(
     request: PinSetRequest,
-    current_user: models.User = Depends(security.get_current_user), 
+    auth_user: models.User = Depends(security.get_current_user), 
     db: Session = Depends(get_db)
 ):
     # 1. Xác thực mật khẩu đăng nhập
-    if not security.verify_password(request.password, current_user.hashed_password):
+    if not security.verify_password(request.password, auth_user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sai mật khẩu")
 
     # 2. Xác thực OTP
-    stored_otp = otp_storage.get(current_user.username)
+    stored_otp = otp_storage.get(auth_user.username)
     if not stored_otp or datetime.now() > stored_otp["expiry"] or stored_otp["otp"] != request.otp:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP sai hoặc hết hạn")
 
-    # 3. Hash và lưu PIN mới
-    current_user.hashed_pin = security.get_pin_hash(request.new_pin)
-    db.add(current_user)
-    db.commit()
+    # 3. Lấy user MỘT LẦN NỮA, nhưng dùng session 'db' (Session 10)
+    # Điều này đảm bảo 'db_user' được đính kèm vào đúng session
+    db_user = db.query(models.User).filter(models.User.id == auth_user.id).first()
+    if not db_user:
+        # Điều này không bao giờ nên xảy ra, nhưng để an toàn
+        raise HTTPException(status_code=404, detail="User not found in session")
+    
+    # 4. Hash và lưu PIN mới
+    db_user.hashed_pin = security.get_pin_hash(request.new_pin)
+    # db.add(db_user) # KHÔNG cần 'add' vì 'db_user' đã được lấy từ 'db'
+    db.commit() # Chỉ cần commit session 'db'
 
-    del otp_storage[current_user.username]
+    del otp_storage[auth_user.username] # Xóa OTP đã dùng
     return {"message": "Tạo mã PIN thành công!"}

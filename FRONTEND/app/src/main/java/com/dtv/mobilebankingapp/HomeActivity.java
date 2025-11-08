@@ -32,6 +32,8 @@ public class HomeActivity extends AppCompatActivity {
     private EditText etAmount;
     private Button btnTransfer;
     private String authToken; // Lưu token để dùng lại
+    private Button btnGoToSetPin;
+    private EditText etPin;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,7 +49,9 @@ public class HomeActivity extends AppCompatActivity {
 
         etReceiverAccount = findViewById(R.id.etReceiverAccount);
         etAmount = findViewById(R.id.etAmount);
+        etPin = findViewById(R.id.etPin);
         btnTransfer = findViewById(R.id.btnTransfer);
+        btnGoToSetPin = findViewById(R.id.btnGoToSetPin);
 
         String token = sessionManager.getAuthToken();
         if (token == null) {
@@ -70,6 +74,11 @@ public class HomeActivity extends AppCompatActivity {
         // Gán sự kiện cho nút chuyển tiền
         btnTransfer.setOnClickListener(v -> {
             handleTransfer();
+        });
+
+        btnGoToSetPin.setOnClickListener(v -> {
+            Intent intent = new Intent(HomeActivity.this, SetPinActivity.class);
+            startActivity(intent);
         });
     }
 
@@ -131,10 +140,11 @@ public class HomeActivity extends AppCompatActivity {
     private void handleTransfer() {
         String receiverAccount = etReceiverAccount.getText().toString();
         String amountString = etAmount.getText().toString();
+        String pin = etPin.getText().toString();
 
         // 1. Kiểm tra input
-        if (receiverAccount.isEmpty() || amountString.isEmpty()) {
-            Toast.makeText(this, "Vui lòng nhập đủ thông tin", Toast.LENGTH_SHORT).show();
+        if (receiverAccount.isEmpty() || amountString.isEmpty() || pin.isEmpty()) {
+            Toast.makeText(this, "Vui lòng nhập đủ thông tin và mã PIN", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -147,12 +157,17 @@ public class HomeActivity extends AppCompatActivity {
         }
 
         if (amount <= 0) {
-            Toast.makeText(this, "số tiền phải lớn hơn 0", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Số tiền phải lớn hơn 0", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (pin.length() != 6) {
+            Toast.makeText(this, "Mã pin phải có 6 số", Toast.LENGTH_SHORT).show();
             return;
         }
 
         // 2. Tạo Request Body
-        TransferRequest request = new TransferRequest(receiverAccount, amount);
+        TransferRequest request = new TransferRequest(receiverAccount, amount, pin);
 
         // 3. Gọi API (dùng lại authToken đã lưu)
         Call<TransactionResponse> call = apiService.performTransfer(authToken, request);
@@ -166,6 +181,7 @@ public class HomeActivity extends AppCompatActivity {
                     // Xóa input
                     etReceiverAccount.setText("");
                     etAmount.setText("");
+                    etPin.setText("");
 
                     // QUAN TRỌNG: Tải lại số dư mới
                     fetchAccountInfo(authToken);
@@ -173,7 +189,8 @@ public class HomeActivity extends AppCompatActivity {
                 } else {
                     // THẤT BẠI (không đủ tiền, STK sai)\
                     // (đọc lỗi chi tiết từ response.errorBody())
-                    Toast.makeText(HomeActivity.this, "Chuyển tiền thất bại (Số tài khoản sai hoặc không đủ số dư)", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(HomeActivity.this, "Chuyển tiền thất bại (Sai PIN hoặc Số tài khoản sai hoặc không đủ số dư)", Toast.LENGTH_LONG).show();
+                    etPin.setText("");
                 }
             }
 

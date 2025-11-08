@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    tools:context=".SetPinActivity">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Tạo Mã PIN Giao dịch"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_gravity="center"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Mã OTP sẽ được gửi về email của bạn để xác thực."
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:layout_marginBottom="16dp"/>
+
+    <EditText
+        android:id="@+id/etPassword"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Nhập Mật khẩu Đăng nhập"
+        android:inputType="textPassword"
+        android:layout_marginTop="16dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp">
+
+        <EditText
+            android:id="@+id/etOtp"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Mã OTP"
+            android:inputType="number"/>
+
+        <Button
+            android:id="@+id/btnRequestOtp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Gửi OTP"/>
+    </LinearLayout>
+
+    <EditText
+        android:id="@+id/etNewPin"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Nhập Mã PIN mới (6 số)"
+        android:inputType="numberPassword"
+        android:maxLength="6"
+        android:layout_marginTop="16dp"/>
+
+    <Button
+        android:id="@+id/btnConfirmPin"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Xác Nhận Tạo PIN"
+        android:layout_marginTop="24dp"/>
+
+</LinearLayout>

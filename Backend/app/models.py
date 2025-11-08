@@ -10,6 +10,7 @@ class User(Base):
     username = Column(String(50), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(100))
+    email = Column(String(100), unique=True, index=True, nullable=False)
     role = Column(String(50), default="CUSTOMER")
     accounts = relationship("Account", back_populates="owner")
     hashed_pin = Column(String(255), nullable=True) # PIN 6 số (đã hash)
