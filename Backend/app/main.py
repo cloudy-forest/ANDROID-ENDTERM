@@ -180,6 +180,18 @@ def perform_transfer(
     # 7. Trả về 200 OK (Giao dịch thành công)
     return db_transaction
 
+# --- Endpoint 6: Lấy Lịch sử Giao dịch (Được bảo vệ) ---
+@app.get("/api/transactions/me", response_model=list[schemas.Transaction])
+def read_user_transactions(
+    current_user: models.User = Depends(security.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    API được bảo vệ, trả về TẤT CẢ giao dịch (gửi và nhận) của user hiện tại
+    """
+    # Chỉ cần gọi hàm crud để lấy giao dịch
+    return crud.get_transactions_by_user(db, user_id=current_user.id)
+
 @app.post("/api/pin/request-otp")
 def request_pin_otp(current_user: models.User = Depends(security.get_current_user)):
     otp_code = str(random.randint(100000, 999999))

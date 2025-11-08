@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from . import models, schemas, security
 
 # --- READ ---
@@ -85,6 +86,33 @@ def create_transaction(db: Session, sender_account: models.Account, receiver_acc
         # Nếu có lỗi, hủy mọi thay đổi
         db.rollback()
         return None
+    
+def get_transactions_by_user(db: Session, user_id: int):
+    """
+    Lấy tất cả giao dịch (gửi và nhận) của 1 user sắp xếp theo thời gian mới nhất
+    """
+    # Truy vấn các tài khoản của user
+    # 1. Lấy tất cả ID tài khoản của user này
+    user_accounts = db.query(models.Account.id).filter(models.Account.owner_id == user_id).all()
+    # Chuyển [[1], [2]] thành [1, 2]
+    account_ids = [account.id for account in user_accounts]
+    
+    if not account_ids:
+        # Nếu user không có tài khoản nào, họ không có giao dịch
+        return []
+    
+    # 2. Tìm tất cả giao dịch
+    #    nơi người gửi (sender_id) LÀ MỘT TRONG CÁC tài khoản của user
+    #    HOẶC người nhận (receiver_id) LÀ MỘT TRONG CÁC tài khoản của user
+    transactions = db.query(models.Transaction).filter(
+        or_(
+            models.Transaction.sender_id.in_(account_ids),
+            models.Transaction.receiver_id.in_(account_ids)
+        )
+    ).order_by(models.Transaction.timestamp.desc()).all() # Sắp xếp mới nhất lên đầu
+    
+    return transactions
+
     
 # TODO: Thêm các hàm CRUD khác ở đây
 
