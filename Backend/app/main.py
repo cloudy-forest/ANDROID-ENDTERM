@@ -16,6 +16,11 @@ from . import crud, models, schemas, security
 from .database import SessionLocal, engine, Base
 
 
+
+INTER_BANK_FEE = 5000  # Phí 5,000 VND
+MY_BANK_NAME = "TDTU_BANK"
+
+
 # -------------------------------------------------------------------
 # !!! QUAN TRỌNG !!!
 # Dòng này ra lệnh cho SQLAlchemy tạo tất cả các bảng (định nghĩa
@@ -112,72 +117,68 @@ def read_user_accounts(current_user: models.User = Depends(security.get_current_
 
 # --- Endpoint 5: Chuyển tiền (Được bảo vệ) ---
 @app.post("/api/transactions/transfer", response_model=schemas.Transaction)
-def perform_transfer(
-    transaction_request: schemas.TransactionCreate,
-    current_user: models.User = Depends(security.get_current_user),
+def transfer_funds(
+    transaction_request: schemas.TransactionCreate, 
+    current_user: models.User = Depends(security.get_current_user), 
     db: Session = Depends(get_db)
 ):
-    # API được bảo vệ đẻ thực hiện chuyển tiền
-    
-    # --- BƯỚC 1: XÁC THỰC MÃ PIN ---
-    
-    # 1a. Kiểm tra xem user đã tạo PIN chưa
+    # 1. Xác thực PIN
     if not current_user.hashed_pin:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Vui lòng tạo mã PIN giao dịch trước khi chuyển tiền"
-        )
-
-    # 1b. Xác thực PIN user nhập (từ 'transaction_request.pin')
-    # với PIN đã lưu ('current_user.hashed_pin')
-    # (dùng hàm 'verify_pin' bạn đã thêm trong 'security.py')
-    if not security.verify_pin(transaction_request.pin, current_user.hashed_pin):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Mã PIN không chính xác"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Vui lòng cài đặt mã PIN giao dịch trước")
     
-    # 2. Lấy tài khoản của người gửi
-    # ( an toàn hơn, tránh lỗi [0])
-    sender_accounts = crud.get_accounts_by_user(db, user_id=current_user.id)
-    if not sender_accounts:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User (sender) has no account",
-        )
-    sender_account = sender_accounts[0] # Lấy tài khoản đầu tiên
+    if not security.verify_password(transaction_request.pin, current_user.hashed_pin):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Mã PIN giao dịch không chính xác")
 
-    # 3. Lấy tài khoản của người nhận
-    receiver_account = crud.get_account_by_number(db, account_number=transaction_request.receiver_account_number)
+    # 2. Lấy tài khoản người gửi (Giả định 1 user 1 tài khoản)
+    if not current_user.accounts:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Người dùng không có tài khoản ngân hàng")
+    sender_account = current_user.accounts[0]
+
+    # 3. Lấy tài khoản người nhận
+    # DÙNG HÀM MỚI: tìm theo SỐ TK và TÊN NGÂN HÀNG
+    receiver_account = crud.get_account_by_number_and_bank(
+        db, 
+        account_number=transaction_request.receiver_account_number,
+        bank_name=transaction_request.receiver_bank_name
+    )
+
     if not receiver_account:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Receiver account not found",
-        )
-        
-    # 4. Kiểm tra user tự chuyển cho chính mình
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tài khoản người nhận không tồn tại hoặc sai ngân hàng")
+
+    # 4. Kiểm tra tự chuyển tiền
     if sender_account.id == receiver_account.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail= "Cannot transfer to your own account",
-        )
-        
-    # 5. Thực hiện giao dịch
-    db_transaction = crud.create_transaction(
-        db=db,
-        sender_account=sender_account,
-        receiver_account=receiver_account,
-        amount=transaction_request.amount
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Không thể tự chuyển tiền cho chính mình")
+
+    # 5. LOGIC TÍNH PHÍ (MỚI)
+    amount_to_receive = transaction_request.amount # Số tiền người nhận nhận
+    total_amount_to_debit = amount_to_receive   # Số tiền người gửi bị trừ
+    fee = 0
+
+    # Kiểm tra xem có phải liên ngân hàng không
+    is_inter_bank = (sender_account.bank_name != receiver_account.bank_name)
+
+    if is_inter_bank:
+        fee = INTER_BANK_FEE
+        total_amount_to_debit += fee
+
+    # 6. Kiểm tra số dư với TỔNG SỐ TIỀN CẦN TRỪ
+    if sender_account.balance < total_amount_to_debit:
+        detail_msg = f"Số dư không đủ. Bạn cần {total_amount_to_debit} VND (đã bao gồm phí {fee} VND)"
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail_msg)
+
+    # 7. Thực hiện giao dịch (DÙNG HÀM MỚI V2)
+    db_transaction = crud.create_transaction_v2(
+        db=db, 
+        sender_account=sender_account, 
+        receiver_account=receiver_account, 
+        amount_to_receive=amount_to_receive,
+        total_debit=total_amount_to_debit
     )
     
-    # 6. Xử lí kết quả
-    if db_transaction is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Transaction failed (e.g., insufficient funds)",
-        )
-        
-    # 7. Trả về 200 OK (Giao dịch thành công)
+    if not db_transaction:
+        # Lỗi này xảy ra nếu CSDL bị lỗi (đã check số dư ở trên)
+        raise HTTPException(status_code=500, detail="Giao dịch thất bại do lỗi hệ thống")
+
     return db_transaction
 
 @app.post("/api/pin/request-otp")

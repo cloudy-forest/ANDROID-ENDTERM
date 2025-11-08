@@ -47,6 +47,15 @@ def get_accounts_by_user(db: Session, user_id: int):
 def get_account_by_number(db: Session, account_number: str):
     return db.query(models.Account).filter(models.Account.account_number == account_number).first()
 
+def get_account_by_number_and_bank(db: Session, account_number: str, bank_name: str):
+    """
+    Tìm tài khoản bằng SỐ TK và TÊN NGÂN HÀNG
+    """
+    return db.query(models.Account).filter(
+        models.Account.account_number == account_number,
+        models.Account.bank_name == bank_name
+    ).first()
+
 # --- HÀM CHUYỂN TIỀN---
 def create_transaction(db: Session, sender_account: models.Account, receiver_account: models.Account, amount: int):
 
@@ -83,6 +92,52 @@ def create_transaction(db: Session, sender_account: models.Account, receiver_acc
     
     except Exception as e: 
         # Nếu có lỗi, hủy mọi thay đổi
+        db.rollback()
+        return None
+    
+def create_transaction_v2(db: Session, sender_account: models.Account, receiver_account: models.Account, amount_to_receive: int, total_to_debit: int):
+    """
+    Hàm chuyển tiền V2:
+    - amount_to_receive: Số tiền người nhận nhận được
+    - total_to_debit: Tổng số tiền người gửi bị trừ (đã bao gồm phí)
+    """
+
+    # 1. Kiểm tra số dư (với tổng số tiền bị trừ)
+    if sender_account.balance < total_to_debit:
+        return None # Không đủ tiền
+    try: 
+        # 2. Trừ tiền người gửi (Trừ tổng số tiền)
+        sender_account.balance -= total_to_debit
+        
+        # 3. Cộng tiền người nhận (Chỉ cộng số tiền gốc)
+        receiver_account.balance += amount_to_receive
+        
+        # 4. Tạo bản ghi (record) giao dịch
+        db_transaction = models.Transaction(
+            amount=amount_to_receive, # Ghi lại số tiền gốc
+            sender_id=sender_account.id,
+            receiver_id=receiver_account.id
+            # Bạn có thể thêm cột 'fee' vào model Transaction nếu muốn
+        )
+        
+        # 5. Thêm cả 3 thay đổi vào session
+        db.add(sender_account)
+        db.add(receiver_account)
+        db.add(db_transaction)
+        
+        # 6. Commit (Lưu)
+        db.commit()
+        
+        # 7. Refresh
+        db.refresh(db_transaction)
+        db.refresh(sender_account)
+        db.refresh(receiver_account)
+        
+        return db_transaction
+
+    except Exception as e:
+        # 7. ... hoặc Rollback (Hoàn tác) nếu có lỗi
+        print(f"Lỗi giao dịch: {e}")
         db.rollback()
         return None
     

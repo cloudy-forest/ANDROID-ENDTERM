@@ -10,7 +10,7 @@ from datetime import datetime
 class AccountBase(BaseModel):
     account_number: str
     balance: int
-
+    bank_name: str 
 class Account(AccountBase):
     id: int
     owner_id: int
@@ -59,7 +59,9 @@ class TransactionBase(BaseModel):
 class TransactionCreate(TransactionBase):
     receiver_account_number: str
     pin: str
-    
+    # ngân hàng nhận mặc định là TDTU_BANK
+    receiver_bank_name: str = "TDTU_BANK"
+
 class Transaction(TransactionBase):
     id: int
     timestamp: datetime

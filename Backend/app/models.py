@@ -26,6 +26,12 @@ class Account(Base):
     # Nó liên kết cột 'owner_id' này với cột 'id' của bảng 'users'
     owner_id = Column(Integer, ForeignKey("users.id"))
 
+    # ngân hàng tạo ra mặc định là TDTU_BANK
+    bank_name = Column(String(50), nullable=False, default="TDTU_BANK")
+
+    # Tạo khóa ngoại (Foreign Key)
+
+
     # Tạo mối quan hệ "ngược"
     # Giúp ta gọi `user.accounts` để lấy danh sách tài khoản
     owner = relationship("User", back_populates="accounts")
